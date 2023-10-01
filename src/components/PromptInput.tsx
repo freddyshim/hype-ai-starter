@@ -1,12 +1,13 @@
 interface PromptInputProps {
+  roomId: string
   placeholder?: string
 }
 
-const PromptInput = ({ placeholder }: PromptInputProps) => {
+const PromptInput = ({ roomId, placeholder }: PromptInputProps) => {
   return (
     <form
-      hx-post="/prompt"
-      hx-target="#chatroom"
+      hx-patch={`/room/${roomId}`}
+      hx-target={`#${roomId}`}
       hx-swap="beforeend"
       class="flex gap-4 items-center"
     >

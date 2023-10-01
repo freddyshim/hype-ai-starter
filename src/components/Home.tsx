@@ -1,3 +1,5 @@
+import PromptInput from './PromptInput'
+
 const Home = () => (
   <html>
     <head>
@@ -10,8 +12,7 @@ const Home = () => (
     </head>
     <body class="w-full bg-black text-white flex flex-col justify-start items-center gap-4">
       <h1 class="text-6xl font-bold">HTMX + Hono + ChatGPT</h1>
-      <div hx-get="/prompt" hx-trigger="load" hx-swap="outerHTML" />
-      <div hx-get="/chat" hx-trigger="load" hx-swap="outerHTML" />
+      <div hx-post="/room" hx-trigger="load" hx-swap="outerHTML" />
     </body>
   </html>
 )

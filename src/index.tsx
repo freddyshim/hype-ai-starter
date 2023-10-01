@@ -6,14 +6,15 @@ import OpenAI from 'openai'
 import z from 'zod'
 import { zValidator } from '@hono/zod-validator'
 import ChatMessage from '@components/ChatMessage'
-import ChatRoom from '@components/ChatRoom'
 import Home from '@components/Home'
-import PromptInput from '@components/PromptInput'
 import SseWrapper from '@components/SseWrapper'
+import ChatRoom from '@components/ChatRoom'
 
 // TODO: replace with real database
-let prompts: { [key: string]: string } = {}
-let completions: { [key: string]: string[] } = {}
+let rooms: {
+  [key: string]: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+} = {}
+let completions: { [key: string]: string } = {}
 
 const openai = new OpenAI({
   apiKey: Bun.env.OPENAI_API_KEY,
@@ -24,36 +25,39 @@ const app = new Hono()
 app
   .use('/static/*', serveStatic({ root: './src' }))
   .get('/', (c) => c.html(<Home />))
-  .get('/chat', (c) => c.html(<ChatRoom messages={[]} />))
-  .get('/prompt', (c) =>
-    c.html(<PromptInput placeholder="Ask me anything..." />),
-  )
-  .post(
-    '/prompt',
+  .post('/room', async (c) => {
+    const roomId = nanoid()
+    rooms[roomId] = []
+    return c.html(<ChatRoom roomId={roomId} messages={rooms[roomId]} />)
+  })
+  .patch(
+    '/room/:roomId',
     zValidator('form', z.object({ prompt: z.string() })),
     async (c) => {
+      const { roomId } = c.req.param()
       const { prompt } = c.req.valid('form')
-      const promptId = nanoid()
+
+      const room = rooms[roomId]
+      if (!room) {
+        throw new HTTPException(404, { message: 'Room not found' })
+      }
+
+      rooms[roomId].push({ role: 'user', content: prompt })
+
       const completionId = nanoid()
-      prompts[promptId] = prompt
-      completions[completionId] = ['']
+      completions[completionId] = ''
+
       return c.html(
         <>
-          <ChatMessage
-            id={promptId}
-            message={prompt}
-            isLeft={false}
-            isLast={true}
-          />
+          <ChatMessage message={prompt} isLeft={false} />
           <ChatMessage
             id={completionId}
             message={
               <SseWrapper
-                url={`/message?promptId=${promptId}&completionId=${completionId}`}
+                url={`/message?roomId=${roomId}&completionId=${completionId}`}
               />
             }
             isLeft={true}
-            isLast={true}
           />
         </>,
       )
@@ -63,17 +67,18 @@ app
     '/message',
     zValidator(
       'query',
-      z.object({ promptId: z.string(), completionId: z.string() }),
+      z.object({ roomId: z.string(), completionId: z.string() }),
     ),
     async (c) => {
-      const { promptId, completionId } = c.req.valid('query')
-      const prompt = prompts[promptId]
-      if (!prompt) {
-        throw new HTTPException(404, { message: 'Prompt not found' })
+      const { roomId, completionId } = c.req.valid('query')
+
+      const room = rooms[roomId]
+      if (!room || !room.length) {
+        throw new HTTPException(404, { message: 'Room not found' })
       }
 
       const chatStream = await openai.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
+        messages: room,
         model: 'gpt-3.5-turbo',
         stream: true,
       })
@@ -83,27 +88,21 @@ app
           let lastValue = ''
           for await (const message of chatStream) {
             const data = message.choices[0]?.delta.content ?? ''
-            const currComp = completions[completionId]
-            if (data.includes('\n\n')) {
-              currComp[currComp.length - 1] += data.replace(/[\r\n]+/g, '')
-              currComp.push('')
-            } else {
-              currComp[currComp.length - 1] += data
-            }
+            const parsedMsg = data.replace(/[\r\n]+/g, '<br>')
+
             let valueToSend = lastValue
             if (data[0] === ' ') valueToSend += ' '
-            lastValue = data
-            controller.enqueue(
-              `event: message\ndata: ${valueToSend.replace(
-                /[\r\n]+/g,
-                '<br>',
-              )}\n\n`,
-            )
+            lastValue = parsedMsg
+
+            completions[completionId] += data
+
+            controller.enqueue(`event: message\ndata: ${valueToSend}\n\n`)
+
             if (message.choices[0]?.finish_reason) {
               controller.enqueue(
                 `event: message\ndata: ${(
                   <div
-                    hx-post={`/message/complete?completionId=${completionId}`}
+                    hx-post={`/message/complete?roomId=${roomId}&completionId=${completionId}`}
                     hx-trigger="load"
                     hx-target={`#${completionId}`}
                     hx-swap="outerHTML"
@@ -126,15 +125,28 @@ app
   )
   .post(
     '/message/complete',
-    zValidator('query', z.object({ completionId: z.string() })),
+    zValidator(
+      'query',
+      z.object({ roomId: z.string(), completionId: z.string() }),
+    ),
     (c) => {
-      const { completionId } = c.req.valid('query')
-      const currComp = completions[completionId]
+      const { roomId, completionId } = c.req.valid('query')
+
+      const room = rooms[roomId]
+      if (!room || !room.length) {
+        throw new HTTPException(404, { message: 'Room not found' })
+      }
+
+      const content = completions[completionId]
+      if (!content) {
+        throw new HTTPException(404, { message: 'Completion not found' })
+      }
+
+      room.push({ role: 'assistant', content })
+
       return c.html(
         <div id={completionId}>
-          {currComp.map((p) => (
-            <span class="block whitespace-pre-wrap max-w-[500px]">{p}</span>
-          ))}
+          <span class="block whitespace-pre-wrap max-w-[500px]">{content}</span>
         </div>,
       )
     },

@@ -1,23 +1,23 @@
 import ChatMessage from '@components/ChatMessage'
-import { ChatMessageConfig } from '@utils/types'
+import PromptInput from '@components/PromptInput'
+import { OpenAI } from 'openai'
 
 interface ChatRoomProps {
-  messages: ChatMessageConfig[]
+  roomId: string
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
 }
 
-const ChatRoom = ({ messages }: ChatRoomProps) => (
-  <div
-    id="chatroom"
-    class="w-full max-w-5xl px-12 flex flex-col justify-center items-center gap-4 text-xl"
-  >
-    {messages.map(({ id, message, user, isChatGpt }, idx, arr) => (
-      <ChatMessage
-        id={id}
-        message={message}
-        isLeft={isChatGpt}
-        isLast={!arr[idx + 1] || arr[idx + 1].user !== user}
-      />
-    ))}
+const ChatRoom = ({ roomId, messages }: ChatRoomProps) => (
+  <div id="chatroom" class="w-full text-xl flex flex-col items-center">
+    <PromptInput roomId={roomId} />
+    <div
+      id={roomId}
+      class="w-full max-w-5xl px-12 flex flex-col justify-center items-center gap-4"
+    >
+      {messages.map(({ role, content }) => (
+        <ChatMessage message={content ?? ''} isLeft={role === 'assistant'} />
+      ))}
+    </div>
   </div>
 )
 
