@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.chat-message {
+  position: relative;
+  border-radius: 1rem;
+  border: 3px double transparent;
+  padding: 3px 6px;
+}
+
+.chat-message--left {
+  align-self: flex-start;
+}
+
+.chat-message--right {
+  align-self: flex-end;
+}
+
+.chat-message--left.chat-message--last::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 30px;
+  height: 20px;
+  width: 20px;
+  background: inherit;
+  box-sizing: border-box;
+  transform: rotate(45deg) translate(-50%);
+  box-shadow: inherit;
+  z-index: -1;
+}
+
+.chat-message--right.chat-message--last::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 30px;
+  height: 20px;
+  width: 20px;
+  background: inherit;
+  box-sizing: border-box;
+  transform: rotate(45deg) translate(-50%);
+  box-shadow: inherit;
+  z-index: -1;
+}
