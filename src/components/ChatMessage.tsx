@@ -16,7 +16,7 @@ const ChatMessage = ({
   return (
     <div
       class={classes(
-        'chat-message',
+        'chat-message max-w-[500px]',
         // TODO: fix chat arrow
         //isLast && 'chat-message--last',
         isLeft

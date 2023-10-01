@@ -50,7 +50,6 @@ app
             message={
               <SseWrapper
                 url={`/message?promptId=${promptId}&completionId=${completionId}`}
-                placeholder="..."
               />
             }
             isLeft={true}
@@ -81,35 +80,37 @@ app
 
       const stream = new ReadableStream({
         async pull(controller) {
+          let lastValue = ''
           for await (const message of chatStream) {
             const data = message.choices[0]?.delta.content ?? ''
             const currComp = completions[completionId]
-            if (data.includes('\n')) {
+            if (data.includes('\n\n')) {
               currComp[currComp.length - 1] += data.replace(/[\r\n]+/g, '')
               currComp.push('')
             } else {
               currComp[currComp.length - 1] += data
             }
-            // TODO: parse code blocks and replace with custom html
-            const fullMessage = (
-              <>
-                {currComp.map((p) => (
-                  <span class="block whitespace-pre-wrap max-w-[500px]">
-                    {p}
-                  </span>
-                ))}
-                {message.choices[0]?.finish_reason ? (
+            let valueToSend = lastValue
+            if (data[0] === ' ') valueToSend += ' '
+            lastValue = data
+            controller.enqueue(
+              `event: message\ndata: ${valueToSend.replace(
+                /[\r\n]+/g,
+                '<br>',
+              )}\n\n`,
+            )
+            if (message.choices[0]?.finish_reason) {
+              controller.enqueue(
+                `event: message\ndata: ${(
                   <div
                     hx-post={`/message/complete?completionId=${completionId}`}
                     hx-trigger="load"
                     hx-target={`#${completionId}`}
+                    hx-swap="outerHTML"
                   />
-                ) : (
-                  ''
-                )}
-              </>
-            )
-            controller.enqueue(`event: message\ndata: ${fullMessage}\n\n`)
+                )}\n\n`,
+              )
+            }
           }
         },
       })
