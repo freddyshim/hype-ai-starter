@@ -128,7 +128,7 @@ app
               controller.enqueue(
                 `event: message\ndata: ${(
                   <div
-                    hx-post={`/message/complete?roomId=${roomId}&completionId=${completionId}`}
+                    hx-post={`/message/complete?completionId=${completionId}`}
                     hx-trigger="load"
                     hx-target={`#${completionId}`}
                     hx-swap="outerHTML"
