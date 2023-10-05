@@ -9,17 +9,24 @@ import ChatMessage from '@components/ChatMessage'
 import Home from '@components/Home'
 import SseWrapper from '@components/SseWrapper'
 import ChatRoom from '@components/ChatRoom'
+import { connect } from '@db/index'
 
-// TODO: replace with real database
-let rooms: {
-  [key: string]: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-} = {}
-let completions: { [key: string]: string } = {}
+// initialize db
+const {
+  getRoom,
+  createRoom,
+  getRoomMessages,
+  getMessage,
+  insertMessage,
+  updateMessage,
+} = connect('src/db/sqlite.db')
 
+// initialize ChatGPT
 const openai = new OpenAI({
   apiKey: Bun.env.OPENAI_API_KEY,
 })
 
+// initialize server
 const app = new Hono()
 
 app
@@ -27,8 +34,8 @@ app
   .get('/', (c) => c.html(<Home />))
   .post('/room', async (c) => {
     const roomId = nanoid()
-    rooms[roomId] = []
-    return c.html(<ChatRoom roomId={roomId} messages={rooms[roomId]} />)
+    createRoom.run({ $id: roomId })
+    return c.html(<ChatRoom roomId={roomId} messages={[]} />)
   })
   .patch(
     '/room/:roomId',
@@ -37,15 +44,26 @@ app
       const { roomId } = c.req.param()
       const { prompt } = c.req.valid('form')
 
-      const room = rooms[roomId]
+      const room = getRoom.get({ $id: roomId })
       if (!room) {
         throw new HTTPException(404, { message: 'Room not found' })
       }
 
-      rooms[roomId].push({ role: 'user', content: prompt })
+      const promptId = nanoid()
+      insertMessage.run({
+        $id: promptId,
+        $roomId: roomId,
+        $role: 'user',
+        $content: prompt,
+      })
 
       const completionId = nanoid()
-      completions[completionId] = ''
+      insertMessage.run({
+        $id: completionId,
+        $roomId: roomId,
+        $role: 'assistant',
+        $content: '',
+      })
 
       return c.html(
         <>
@@ -72,19 +90,27 @@ app
     async (c) => {
       const { roomId, completionId } = c.req.valid('query')
 
-      const room = rooms[roomId]
-      if (!room || !room.length) {
+      const room = getRoom.get({ $id: roomId })
+      if (!room) {
         throw new HTTPException(404, { message: 'Room not found' })
       }
 
+      const messages = getRoomMessages.all({ $roomId: roomId })
+      if (!messages.length) {
+        throw new HTTPException(404, {
+          message: 'User message required to generate chat message',
+        })
+      }
+
       const chatStream = await openai.chat.completions.create({
-        messages: room,
+        messages,
         model: 'gpt-3.5-turbo',
         stream: true,
       })
 
       const stream = new ReadableStream({
         async pull(controller) {
+          let fullMessage = ''
           let lastValue = ''
           for await (const message of chatStream) {
             const data = message.choices[0]?.delta.content ?? ''
@@ -94,7 +120,7 @@ app
             if (data[0] === ' ') valueToSend += ' '
             lastValue = parsedMsg
 
-            completions[completionId] += data
+            fullMessage += data
 
             controller.enqueue(`event: message\ndata: ${valueToSend}\n\n`)
 
@@ -109,6 +135,7 @@ app
                   />
                 )}\n\n`,
               )
+              updateMessage.run({ $id: completionId, $content: fullMessage })
             }
           }
         },
@@ -125,28 +152,20 @@ app
   )
   .post(
     '/message/complete',
-    zValidator(
-      'query',
-      z.object({ roomId: z.string(), completionId: z.string() }),
-    ),
+    zValidator('query', z.object({ completionId: z.string() })),
     (c) => {
-      const { roomId, completionId } = c.req.valid('query')
+      const { completionId } = c.req.valid('query')
 
-      const room = rooms[roomId]
-      if (!room || !room.length) {
-        throw new HTTPException(404, { message: 'Room not found' })
-      }
-
-      const content = completions[completionId]
-      if (!content) {
+      const message = getMessage.get({ $id: completionId })
+      if (!message) {
         throw new HTTPException(404, { message: 'Completion not found' })
       }
 
-      room.push({ role: 'assistant', content })
-
       return c.html(
         <div id={completionId}>
-          <span class="block whitespace-pre-wrap max-w-[500px]">{content}</span>
+          <span class="block whitespace-pre-wrap max-w-[500px]">
+            {message.content}
+          </span>
         </div>,
       )
     },

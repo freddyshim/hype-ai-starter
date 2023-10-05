@@ -9,6 +9,7 @@
     "baseUrl": "./",
     "paths": {
       "@components/*": ["./src/components/*"],
+      "@db/*": ["./src/db/*"],
       "@utils/*": ["./src/utils/*"]
     }
   }
