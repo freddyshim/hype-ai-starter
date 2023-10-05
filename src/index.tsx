@@ -88,7 +88,7 @@ app
           let lastValue = ''
           for await (const message of chatStream) {
             const data = message.choices[0]?.delta.content ?? ''
-            const parsedMsg = data.replace(/[\r\n]+/g, '<br>')
+            const parsedMsg = data.replace(/[\r\n]/g, '<br>')
 
             let valueToSend = lastValue
             if (data[0] === ' ') valueToSend += ' '
