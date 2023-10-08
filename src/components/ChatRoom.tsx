@@ -8,16 +8,19 @@ interface ChatRoomProps {
 }
 
 const ChatRoom = ({ roomId, messages }: ChatRoomProps) => (
-  <div id="chatroom" class="w-full text-xl flex flex-col items-center">
-    <PromptInput roomId={roomId} />
+  <div
+    id="chatroom"
+    class="w-full h-full text-xl flex flex-col justify-between items-center"
+  >
     <div
       id={roomId}
-      class="w-full max-w-5xl px-12 flex flex-col justify-center items-center gap-4"
+      class="w-full flex-1 overflow-y-auto px-12 flex flex-col justify-center items-center gap-4"
     >
       {messages.map(({ role, content }) => (
         <ChatMessage message={content ?? ''} isLeft={role === 'assistant'} />
       ))}
     </div>
+    <PromptInput roomId={roomId} />
   </div>
 )
 
