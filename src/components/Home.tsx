@@ -3,7 +3,7 @@ import PromptInput from './PromptInput'
 const Home = () => (
   <html>
     <head>
-      <title>ConverseAI</title>
+      <title>Hype AI Starter</title>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <script src="https://unpkg.com/htmx.org@1.9.5"></script>
