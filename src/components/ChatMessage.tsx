@@ -13,7 +13,7 @@ const ChatMessage = ({ id, message, isLeft = false }: ChatMessageProps) => {
         'chat-message max-w-[500px]',
         isLeft
           ? 'chat-message--left bg-rose-500'
-          : 'chat-message--right bg-teal-500',
+          : 'chat-message--right bg-teal-500'
       )}
     >
       <div id={id ?? ''}>{message}</div>

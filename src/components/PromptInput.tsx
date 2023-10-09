@@ -9,13 +9,16 @@ const PromptInput = ({ roomId, placeholder }: PromptInputProps) => {
       hx-patch={`/room/${roomId}`}
       hx-target={`#${roomId}`}
       hx-swap="beforeend"
-      hx-on="htmx:afterRequest: const input = document.querySelector('#promptInput'); input.value = ''; input.style.height='44px'"
+      {...{
+        'hx-on::after-request':
+          "const input = document.querySelector('#promptInput'); input.value = ''; input.style.height='44px'",
+      }}
       class="w-full h-auto flex items-end gap-4 px-4"
     >
       <textarea
         id="promptInput"
-        x-on:input="$el.style.height=0; $el.style.height=($el.scrollHeight > 44 ? $el.scrollHeight : 44)+'px'"
-        x-on:keydown="if (event.keyCode == 13) { event.preventDefault(); document.querySelector('#promptSubmit').click(); }"
+        hx-on:input="this.style.height=0; this.style.height=(this.scrollHeight > 44 ? this.scrollHeight : 44)+'px'"
+        hx-on:keydown="if (event.keyCode == 13) { event.preventDefault(); document.querySelector('#promptSubmit').click(); }"
         name="prompt"
         type="text"
         placeholder={placeholder}
